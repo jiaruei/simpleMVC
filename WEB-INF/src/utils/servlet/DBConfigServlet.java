@@ -8,7 +8,8 @@ import javax.servlet.http.HttpServlet;
 
 import org.apache.log4j.Logger;
 
-import utils.DBUtils;
+import utils.jdbc.DBUtils;
+
 
 public class DBConfigServlet extends HttpServlet{
 	

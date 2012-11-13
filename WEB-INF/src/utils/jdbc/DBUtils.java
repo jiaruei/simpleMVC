@@ -13,8 +13,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.ResourceBundle;
 
-import javax.management.RuntimeErrorException;
-
 import org.apache.commons.beanutils.MethodUtils;
 import org.apache.commons.lang.math.NumberUtils;
 import org.apache.log4j.Logger;
@@ -179,10 +177,8 @@ public class DBUtils {
 		try {
 			connection = getConnection();
 			ps = connection.prepareStatement(sql.toString());
-			for (int i = 0; i < columns.length; i++) {
-				Object[] values = (Object[]) map.get(columns[i]);
-				ps.setObject(i + 1, values[1]);
-			}
+			ps.clearParameters();
+			setParameters(map, columns, ps);
 
 			ResultSet rs = ps.executeQuery();
 
@@ -194,7 +190,12 @@ public class DBUtils {
 					for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
 						String column = metaData.getColumnName(columnIndex + 1);
 						Object value = rs.getObject(columnIndex + 1);
+						
 						if (value != null) {
+							if(value instanceof java.sql.Date){
+								java.sql.Date utilDate = (java.sql.Date)value;
+								value = new java.util.Date(utilDate.getTime());
+							}
 							String methodName = "set" + column.substring(0, 1).toUpperCase() + column.substring(1);
 							MethodUtils.invokeMethod(vo, methodName, value);
 						}
@@ -258,10 +259,8 @@ public class DBUtils {
 		try {
 			connection = getConnection();
 			ps = connection.prepareStatement(sql.toString());
-			for (int i = 0; i < columns.length; i++) {
-				Object[] values = (Object[]) map.get(columns[i]);
-				ps.setObject(i + 1, values[1]);
-			}
+			ps.clearParameters();
+			setParameters(map, columns, ps);
 
 			size = ps.executeUpdate();
 		} catch (SQLException e) {
@@ -274,6 +273,22 @@ public class DBUtils {
 			closeConnection(connection);
 		}
 		return size;
+	}
+
+	private static void setParameters(Map<String, Object> map, String[] columns, PreparedStatement ps) throws SQLException {
+		
+		for (int i = 0; i < columns.length; i++) {
+			Object[] values = (Object[]) map.get(columns[i]);
+			Object value = values[1];
+			
+			if(value instanceof java.util.Date){
+				java.util.Date utilDate = (java.util.Date)value;
+				value = new java.sql.Date(utilDate.getTime());
+			}
+			
+			ps.setObject(i + 1, value);
+		}
+		
 	}
 
 	public static int deleteVO(Object bean) throws SQLException {
@@ -303,11 +318,7 @@ public class DBUtils {
 			connection = getConnection();
 			ps = connection.prepareStatement(sql.toString());
 			ps.clearParameters();
-
-			for (int i = 0; i < columns.length; i++) {
-				Object[] values = (Object[]) map.get(columns[i]);
-				ps.setObject(i + 1, values[1]);
-			}
+			setParameters(map, columns, ps);
 
 			return ps.executeUpdate();
 
