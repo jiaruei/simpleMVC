@@ -66,7 +66,7 @@ public class DBUtils {
 			currentConnection.setAutoCommit(false);
 			userThreadLocal.set(currentConnection);
 		} catch (SQLException e) {
-			log.error(e,e);
+			log.error(e, e);
 			throw new RuntimeException(e);
 		}
 	}
@@ -152,6 +152,20 @@ public class DBUtils {
 		return bean.getClass().getSimpleName();
 	}
 
+
+	public static List<Map<String, Object>> retrieveMaps(String sql, Map<String, Object> params) throws SQLException {
+
+		Connection connection = getConnection();
+
+		// if(){
+		// ;
+		// }
+
+		// PreparedStatement pre = connection.prepareStatement(sql);
+
+		return null;
+	}
+
 	public static <T> List<T> retrieveVOs(T bean) throws SQLException {
 
 		String tableName = getTableName(bean);
@@ -189,21 +203,21 @@ public class DBUtils {
 				try {
 					T vo = (T) bean.getClass().newInstance();
 					Field[] fields = bean.getClass().getDeclaredFields();
-					
+
 					for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
 						String columnName = metaData.getColumnName(columnIndex + 1);
-						Object value = rs.getObject(columnIndex + 1);
-						
-						if (value != null) {
-							if(value instanceof java.sql.Date){
-								java.sql.Date utilDate = (java.sql.Date)value;
-								value = new java.util.Date(utilDate.getTime());
+						Object columnValue = rs.getObject(columnIndex + 1);
+
+						if (columnValue != null) {
+							if (columnValue instanceof java.sql.Date) {
+								java.sql.Date utilDate = (java.sql.Date) columnValue;
+								columnValue = new java.util.Date(utilDate.getTime());
 							}
-							
-							String methodName = getMappingMethodName(fields,columnName);
-							
-							if(StringUtils.isNotBlank(methodName)){
-								MethodUtils.invokeMethod(vo, methodName, value);								
+
+							String methodName = getMappingMethodName(fields, columnName);
+
+							if (StringUtils.isNotBlank(methodName)) {
+								MethodUtils.invokeMethod(vo, methodName, columnValue);
 							}
 						}
 					}
@@ -227,16 +241,16 @@ public class DBUtils {
 		return list;
 	}
 
-	private static String getMappingMethodName(Field[] fields,String columnName){
-		
+	private static String getMappingMethodName(Field[] fields, String columnName) {
+
 		for (Field field : fields) {
-			
+
 			String fieldName = field.getName();
-			if((fieldName.equalsIgnoreCase(columnName))){
+			if ((fieldName.equalsIgnoreCase(columnName))) {
 				return "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
 			}
 		}
-		
+
 		return null;
 	}
 
@@ -296,14 +310,15 @@ public class DBUtils {
 	}
 
 	private static void setParameters(Map<String, Object> map, String[] columns, PreparedStatement ps) throws SQLException {
-		
+
 		for (int i = 0; i < columns.length; i++) {
 			Object[] values = (Object[]) map.get(columns[i]);
 			Object value = values[1];
-			
-			// translate javaBean Date field (java.util.Date)  to SQL Date type (java.sql.Date) parameter 
-			if(value instanceof java.util.Date){
-				java.util.Date utilDate = (java.util.Date)value;
+
+			// translate javaBean Date field (java.util.Date) to SQL Date type
+			// (java.sql.Date) parameter
+			if (value instanceof java.util.Date) {
+				java.util.Date utilDate = (java.util.Date) value;
 				value = new java.sql.Date(utilDate.getTime());
 			}
 			ps.setObject(i + 1, value);
