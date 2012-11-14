@@ -14,6 +14,7 @@ import java.util.Properties;
 import java.util.ResourceBundle;
 
 import org.apache.commons.beanutils.MethodUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.math.NumberUtils;
 import org.apache.log4j.Logger;
 
@@ -187,8 +188,10 @@ public class DBUtils {
 			while (rs.next()) {
 				try {
 					T vo = (T) bean.getClass().newInstance();
+					Field[] fields = bean.getClass().getDeclaredFields();
+					
 					for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-						String column = metaData.getColumnName(columnIndex + 1);
+						String columnName = metaData.getColumnName(columnIndex + 1);
 						Object value = rs.getObject(columnIndex + 1);
 						
 						if (value != null) {
@@ -196,8 +199,12 @@ public class DBUtils {
 								java.sql.Date utilDate = (java.sql.Date)value;
 								value = new java.util.Date(utilDate.getTime());
 							}
-							String methodName = "set" + column.substring(0, 1).toUpperCase() + column.substring(1);
-							MethodUtils.invokeMethod(vo, methodName, value);
+							
+							String methodName = getMappingMethodName(fields,columnName);
+							
+							if(StringUtils.isNotBlank(methodName)){
+								MethodUtils.invokeMethod(vo, methodName, value);								
+							}
 						}
 					}
 					list.add(vo);
@@ -218,6 +225,19 @@ public class DBUtils {
 			closeConnection(connection);
 		}
 		return list;
+	}
+
+	private static String getMappingMethodName(Field[] fields,String columnName){
+		
+		for (Field field : fields) {
+			
+			String fieldName = field.getName();
+			if((fieldName.equalsIgnoreCase(columnName))){
+				return "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
+			}
+		}
+		
+		return null;
 	}
 
 	/**
@@ -281,14 +301,13 @@ public class DBUtils {
 			Object[] values = (Object[]) map.get(columns[i]);
 			Object value = values[1];
 			
+			// translate javaBean Date field (java.util.Date)  to SQL Date type (java.sql.Date) parameter 
 			if(value instanceof java.util.Date){
 				java.util.Date utilDate = (java.util.Date)value;
 				value = new java.sql.Date(utilDate.getTime());
 			}
-			
 			ps.setObject(i + 1, value);
 		}
-		
 	}
 
 	public static int deleteVO(Object bean) throws SQLException {

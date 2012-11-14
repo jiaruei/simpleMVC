@@ -9,7 +9,12 @@ import org.apache.log4j.Logger;
 public class DateHelper {
 
 	private static Logger log = Logger.getLogger(DateHelper.class);
-
+	
+	/**
+	 * 
+	 * @param y2kDate
+	 * @return
+	 */
 	public static Date y2kStrToDate(String y2kDate) {
 
 		try {
