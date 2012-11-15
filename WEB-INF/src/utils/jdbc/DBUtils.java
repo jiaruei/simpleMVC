@@ -152,7 +152,6 @@ public class DBUtils {
 		return bean.getClass().getSimpleName();
 	}
 
-
 	public static List<Map<String, Object>> retrieveMaps(String sql, Map<String, Object> params) throws SQLException {
 
 		Connection connection = getConnection();
@@ -374,6 +373,31 @@ public class DBUtils {
 				connection.close();
 			}
 		}
+	}
+
+	public static void main(String[] args) {
+
+		String x = "update abc=':abc' and def=':def' ghi=':ghi' and acc ='6' ";
+		x = StringUtils.trim(x);
+		// System.out.println(indexOf);
+
+		while (x.length() != 0) {
+
+			System.out.println("#####");
+			x = StringUtils.substringAfter(x, "':");
+			if (x.length() > 0) {
+				// System.out.println(x);
+				String key = StringUtils.substringBefore(x, "'");
+				System.out.println("---> " + key);
+
+				int indexOf = StringUtils.indexOf(x, "'");
+				x = StringUtils.substring(x, indexOf + 1);
+				System.out.println("@@@" + x);
+
+			}
+
+		}
+
 	}
 
 }
