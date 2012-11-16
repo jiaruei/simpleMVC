@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -151,18 +152,89 @@ public class DBUtils {
 	private static String getTableName(Object bean) {
 		return bean.getClass().getSimpleName();
 	}
+	
+	
+	
+	public static int updateSQL(String fakeSql, Map<String, Object> paramMap) throws SQLException {
+		
+		// parse fakeSQL
+		Object[] sqlWithParams = parseCustomSqlWithParams(fakeSql);
+		String sql = (String) sqlWithParams[0];
+		List<String> params = (List<String>) sqlWithParams[1];
+		
+		Connection connection = null;
+		PreparedStatement pre = null;
+		ResultSet rs = null;
 
-	public static List<Map<String, Object>> retrieveMaps(String sql, Map<String, Object> params) throws SQLException {
+		try {
+			connection = getConnection();
+			pre = connection.prepareStatement(sql);
+		}catch(SQLException e){
+			log.error(e,e);
+			throw e;
+		}finally{
+			if(!pre.isClosed()){
+				pre.close();
+			}
+			closeConnection(connection);
+		}
+		return 0;
+	}
+	public static List<Map<String, Object>> retrieveMaps(String fakeSql, Map<String, Object> paramMap) throws SQLException {
 
-		Connection connection = getConnection();
+		Object[] sqlWithParams = parseCustomSqlWithParams(fakeSql);
+		String sql = (String) sqlWithParams[0];
+		List<String> params = (List<String>) sqlWithParams[1];
+		List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
 
-		// if(){
-		// ;
-		// }
+		Connection connection = null;
+		PreparedStatement pre = null;
+		ResultSet rs = null;
 
-		// PreparedStatement pre = connection.prepareStatement(sql);
+		try {
+			connection = getConnection();
+			pre = connection.prepareStatement(sql);
 
-		return null;
+			for (int i = 0; i < params.size(); i++) {
+				pre.setObject(i + 1, paramMap.get(params.get(i)));
+			}
+			rs = pre.executeQuery();
+
+			ResultSetMetaData metaData = rs.getMetaData();
+			int columnCount = metaData.getColumnCount();
+
+			while (rs.next()) {
+				Map<String, Object> map = new HashMap<String, Object>();
+				for (int i = 0; i < columnCount; i++) {
+					String columnName = metaData.getColumnName(i + 1);
+					Object columnValue = rs.getObject(i + 1);
+					
+					if (columnValue != null) {
+						if (columnValue instanceof java.sql.Date) {
+							java.sql.Date utilDate = (java.sql.Date) columnValue;
+							columnValue = new java.util.Date(utilDate.getTime());
+						}
+					}
+					map.put(columnName, columnValue);
+				}
+				result.add(map);
+			}
+			connection.close();
+		} catch (SQLException e) {
+			log.error(e, e);
+			throw e;
+		} finally {
+			
+			if(rs.isClosed()){
+				rs.close();				
+			}
+			if(pre.isClosed()){
+				pre.close();				
+			}
+			closeConnection(connection);
+		}
+
+		return result;
 	}
 
 	public static <T> List<T> retrieveVOs(T bean) throws SQLException {
@@ -172,54 +244,59 @@ public class DBUtils {
 		String[] columns = (String[]) map.keySet().toArray(new String[] {});
 
 		StringBuilder sql = new StringBuilder("SELECT * FROM ").append(tableName);
+		// append condition 
 		if (columns.length > 0) {
 			sql.append(" WHERE ");
 			for (int i = 0; i < columns.length; i++) {
 				if (i > 0) {
 					sql.append(" AND ");
 				}
-				sql.append(columns[i]).append(" = ? ");
+				sql.append(columns[i]).append(" = ").append(" ? ");
 			}
 		}
 
 		log.debug("SELECT SQL : " + sql.toString());
 
 		Connection connection = null;
-		PreparedStatement ps = null;
+		PreparedStatement pre = null;
+		ResultSet rs = null;
+		
 		List<T> list = new ArrayList<T>();
 
 		try {
 			connection = getConnection();
-			ps = connection.prepareStatement(sql.toString());
-			ps.clearParameters();
-			setParameters(map, columns, ps);
+			pre = connection.prepareStatement(sql.toString());
+			pre.clearParameters();
+			setParameters(map, columns, pre);
 
-			ResultSet rs = ps.executeQuery();
-
+			rs = pre.executeQuery();
 			ResultSetMetaData metaData = rs.getMetaData();
 			int columnCount = metaData.getColumnCount();
+
 			while (rs.next()) {
 				try {
 					T vo = (T) bean.getClass().newInstance();
 					Field[] fields = bean.getClass().getDeclaredFields();
 
-					for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-						String columnName = metaData.getColumnName(columnIndex + 1);
-						Object columnValue = rs.getObject(columnIndex + 1);
-
+					for (int i = 0; i < columnCount; i++) {
+						String columnName = metaData.getColumnName(i + 1);
+						Object columnValue = rs.getObject(i + 1);
+						// make sure column has value
 						if (columnValue != null) {
 							if (columnValue instanceof java.sql.Date) {
 								java.sql.Date utilDate = (java.sql.Date) columnValue;
 								columnValue = new java.util.Date(utilDate.getTime());
 							}
+							// make sure column name and VO filed have same name
+							String fieldName = getSetterMethod(fields, columnName);
 
-							String methodName = getMappingMethodName(fields, columnName);
-
-							if (StringUtils.isNotBlank(methodName)) {
-								MethodUtils.invokeMethod(vo, methodName, columnValue);
+							if (StringUtils.isNotBlank(fieldName)) {
+								// inject value to the vo 
+								MethodUtils.invokeMethod(vo, fieldName, columnValue);
 							}
 						}
 					}
+					
 					list.add(vo);
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -232,18 +309,21 @@ public class DBUtils {
 			log.error(e, e);
 			throw e;
 		} finally {
-			if (ps != null) {
-				ps.close();
+			if(rs.isClosed()){
+				rs.close();				
+			}
+			if(pre.isClosed()){
+				pre.close();				
 			}
 			closeConnection(connection);
 		}
 		return list;
 	}
+	
 
-	private static String getMappingMethodName(Field[] fields, String columnName) {
+	private static String getSetterMethod(Field[] fields, String columnName) {
 
 		for (Field field : fields) {
-
 			String fieldName = field.getName();
 			if ((fieldName.equalsIgnoreCase(columnName))) {
 				return "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
@@ -263,14 +343,17 @@ public class DBUtils {
 		String tableName = getTableName(bean);
 		Map<String, Object> map = getNotBlankFields(bean);
 
-		// create insert sql
+		// create insert SQL
+		String[] columns = (String[]) map.keySet().toArray(new String[] {});
+		if(columns.length == 0){
+			throw new IllegalArgumentException("value of bean fields should't all empty ");
+		}
 		StringBuilder sql = new StringBuilder();
 		StringBuilder sql1 = new StringBuilder();
 		StringBuilder sql2 = new StringBuilder();
 		sql1.append(" INSERT INTO ").append(tableName).append(" (");
 		sql2.append("VALUES (");
 
-		String[] columns = (String[]) map.keySet().toArray(new String[] {});
 		for (int i = 0; i < columns.length; i++) {
 			String column = columns[i];
 			sql1.append(column);
@@ -311,8 +394,7 @@ public class DBUtils {
 	private static void setParameters(Map<String, Object> map, String[] columns, PreparedStatement ps) throws SQLException {
 
 		for (int i = 0; i < columns.length; i++) {
-			Object[] values = (Object[]) map.get(columns[i]);
-			Object value = values[1];
+			Object value = ((Object[]) map.get(columns[i]))[1];
 
 			// translate javaBean Date field (java.util.Date) to SQL Date type
 			// (java.sql.Date) parameter
@@ -375,29 +457,37 @@ public class DBUtils {
 		}
 	}
 
-	public static void main(String[] args) {
+	private static Object[] parseCustomSqlWithParams(String fakeSql) {
 
-		String x = "update abc=':abc' and def=':def' ghi=':ghi' and acc ='6' ";
-		x = StringUtils.trim(x);
-		// System.out.println(indexOf);
-
-		while (x.length() != 0) {
-
-			System.out.println("#####");
-			x = StringUtils.substringAfter(x, "':");
-			if (x.length() > 0) {
-				// System.out.println(x);
-				String key = StringUtils.substringBefore(x, "'");
-				System.out.println("---> " + key);
-
-				int indexOf = StringUtils.indexOf(x, "'");
-				x = StringUtils.substring(x, indexOf + 1);
-				System.out.println("@@@" + x);
-
-			}
-
+		if (StringUtils.isBlank(fakeSql)) {
+			throw new IllegalArgumentException("can't parse empty sql ");
 		}
 
+		String sql = fakeSql;
+		List<String> keyList = new ArrayList<String>();
+
+		// get key parameter ex: ':column' -> column
+		while (fakeSql.length() != 0) {
+			fakeSql = StringUtils.substringAfter(fakeSql.trim(), "':");
+			// make sure prefix ':
+			if (fakeSql.length() > 0) {
+				String key = StringUtils.substringBefore(fakeSql, "'");
+				keyList.add(key);
+				int position = StringUtils.indexOf(fakeSql, "'");
+				if (position == -1) {
+					throw new RuntimeException("語法不正確 少 結尾符號 ' ");
+				}
+				fakeSql = StringUtils.substring(fakeSql, position + 1);
+			}
+		}
+
+		for (String key : keyList) {
+			String replace = "':" + key + "'";
+			sql = StringUtils.replace(sql, replace, "?");
+		}
+		log.debug("parse SQL : " + sql);
+
+		return new Object[] { sql, keyList };
 	}
 
 }
