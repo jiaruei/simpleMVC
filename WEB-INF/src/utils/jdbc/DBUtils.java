@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.ResourceBundle;
 
-import org.apache.commons.beanutils.MethodUtils;
+import org.apache.commons.beanutils.PropertyUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.math.NumberUtils;
 import org.apache.log4j.Logger;
@@ -92,6 +92,8 @@ public class DBUtils {
 					throw new RuntimeException(e);
 				}
 			}
+		} else {
+			throw new RuntimeException("error operator ,miss beginTransaction operator ");
 		}
 	}
 
@@ -114,6 +116,8 @@ public class DBUtils {
 					throw new RuntimeException(e);
 				}
 			}
+		} else {
+			throw new RuntimeException("error operator ,miss beginTransaction operator ");
 		}
 	}
 
@@ -126,328 +130,12 @@ public class DBUtils {
 		}
 	}
 
-	private static Map<String, Object> getNotBlankFields(Object bean) {
-
-		Field[] fields = bean.getClass().getDeclaredFields();
-		Map<String, Object> map = new LinkedHashMap<String, Object>();
-
-		try {
-			for (Field field : fields) {
-				String column = field.getName();
-				String dataType = field.getType().getSimpleName();
-
-				String methodName = "get" + column.substring(0, 1).toUpperCase() + column.substring(1);
-				Object value = MethodUtils.invokeMethod(bean, methodName, null);
-				if (value != null) {
-					map.put(column, new Object[] { dataType, value });
-				}
-			}
-		} catch (Exception e) {
-			log.error(e, e);
-			throw new RuntimeException(e);
-		}
-		return map;
-	}
-
-	private static String getTableName(Object bean) {
-		return bean.getClass().getSimpleName();
-	}
-	
-	
-	
-	public static int updateSQL(String fakeSql, Map<String, Object> paramMap) throws SQLException {
-		
-		// parse fakeSQL
-		Object[] sqlWithParams = parseCustomSqlWithParams(fakeSql);
-		String sql = (String) sqlWithParams[0];
-		List<String> params = (List<String>) sqlWithParams[1];
-		
-		Connection connection = null;
-		PreparedStatement pre = null;
-		ResultSet rs = null;
-
-		try {
-			connection = getConnection();
-			pre = connection.prepareStatement(sql);
-		}catch(SQLException e){
-			log.error(e,e);
-			throw e;
-		}finally{
-			if(!pre.isClosed()){
-				pre.close();
-			}
-			closeConnection(connection);
-		}
-		return 0;
-	}
-	public static List<Map<String, Object>> retrieveMaps(String fakeSql, Map<String, Object> paramMap) throws SQLException {
-
-		Object[] sqlWithParams = parseCustomSqlWithParams(fakeSql);
-		String sql = (String) sqlWithParams[0];
-		List<String> params = (List<String>) sqlWithParams[1];
-		List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
-
-		Connection connection = null;
-		PreparedStatement pre = null;
-		ResultSet rs = null;
-
-		try {
-			connection = getConnection();
-			pre = connection.prepareStatement(sql);
-
-			for (int i = 0; i < params.size(); i++) {
-				pre.setObject(i + 1, paramMap.get(params.get(i)));
-			}
-			rs = pre.executeQuery();
-
-			ResultSetMetaData metaData = rs.getMetaData();
-			int columnCount = metaData.getColumnCount();
-
-			while (rs.next()) {
-				Map<String, Object> map = new HashMap<String, Object>();
-				for (int i = 0; i < columnCount; i++) {
-					String columnName = metaData.getColumnName(i + 1);
-					Object columnValue = rs.getObject(i + 1);
-					
-					if (columnValue != null) {
-						if (columnValue instanceof java.sql.Date) {
-							java.sql.Date utilDate = (java.sql.Date) columnValue;
-							columnValue = new java.util.Date(utilDate.getTime());
-						}
-					}
-					map.put(columnName, columnValue);
-				}
-				result.add(map);
-			}
-			connection.close();
-		} catch (SQLException e) {
-			log.error(e, e);
-			throw e;
-		} finally {
-			
-			if(rs.isClosed()){
-				rs.close();				
-			}
-			if(pre.isClosed()){
-				pre.close();				
-			}
-			closeConnection(connection);
-		}
-
-		return result;
-	}
-
-	public static <T> List<T> retrieveVOs(T bean) throws SQLException {
-
-		String tableName = getTableName(bean);
-		Map<String, Object> map = getNotBlankFields(bean);
-		String[] columns = (String[]) map.keySet().toArray(new String[] {});
-
-		StringBuilder sql = new StringBuilder("SELECT * FROM ").append(tableName);
-		// append condition 
-		if (columns.length > 0) {
-			sql.append(" WHERE ");
-			for (int i = 0; i < columns.length; i++) {
-				if (i > 0) {
-					sql.append(" AND ");
-				}
-				sql.append(columns[i]).append(" = ").append(" ? ");
-			}
-		}
-
-		log.debug("SELECT SQL : " + sql.toString());
-
-		Connection connection = null;
-		PreparedStatement pre = null;
-		ResultSet rs = null;
-		
-		List<T> list = new ArrayList<T>();
-
-		try {
-			connection = getConnection();
-			pre = connection.prepareStatement(sql.toString());
-			pre.clearParameters();
-			setParameters(map, columns, pre);
-
-			rs = pre.executeQuery();
-			ResultSetMetaData metaData = rs.getMetaData();
-			int columnCount = metaData.getColumnCount();
-
-			while (rs.next()) {
-				try {
-					T vo = (T) bean.getClass().newInstance();
-					Field[] fields = bean.getClass().getDeclaredFields();
-
-					for (int i = 0; i < columnCount; i++) {
-						String columnName = metaData.getColumnName(i + 1);
-						Object columnValue = rs.getObject(i + 1);
-						// make sure column has value
-						if (columnValue != null) {
-							if (columnValue instanceof java.sql.Date) {
-								java.sql.Date utilDate = (java.sql.Date) columnValue;
-								columnValue = new java.util.Date(utilDate.getTime());
-							}
-							// make sure column name and VO filed have same name
-							String fieldName = getSetterMethod(fields, columnName);
-
-							if (StringUtils.isNotBlank(fieldName)) {
-								// inject value to the vo 
-								MethodUtils.invokeMethod(vo, fieldName, columnValue);
-							}
-						}
-					}
-					
-					list.add(vo);
-				} catch (Exception e) {
-					e.printStackTrace();
-					log.error(e, e);
-					throw new SQLException(e);
-				}
-			}
-
-		} catch (SQLException e) {
-			log.error(e, e);
-			throw e;
-		} finally {
-			if(rs.isClosed()){
-				rs.close();				
-			}
-			if(pre.isClosed()){
-				pre.close();				
-			}
-			closeConnection(connection);
-		}
-		return list;
-	}
-	
-
-	private static String getSetterMethod(Field[] fields, String columnName) {
-
-		for (Field field : fields) {
-			String fieldName = field.getName();
-			if ((fieldName.equalsIgnoreCase(columnName))) {
-				return "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
-			}
-		}
-
-		return null;
-	}
-
 	/**
-	 * @param bean
-	 * @return
+	 * 若包含一連串 operator 則 不 close connection
+	 * 
+	 * @param connection
 	 * @throws SQLException
 	 */
-	public static int insertVO(Object bean) throws SQLException {
-
-		String tableName = getTableName(bean);
-		Map<String, Object> map = getNotBlankFields(bean);
-
-		// create insert SQL
-		String[] columns = (String[]) map.keySet().toArray(new String[] {});
-		if(columns.length == 0){
-			throw new IllegalArgumentException("value of bean fields should't all empty ");
-		}
-		StringBuilder sql = new StringBuilder();
-		StringBuilder sql1 = new StringBuilder();
-		StringBuilder sql2 = new StringBuilder();
-		sql1.append(" INSERT INTO ").append(tableName).append(" (");
-		sql2.append("VALUES (");
-
-		for (int i = 0; i < columns.length; i++) {
-			String column = columns[i];
-			sql1.append(column);
-			sql2.append("?");
-			if (i < columns.length - 1) {
-				sql1.append(",");
-				sql2.append(",");
-			}
-		}
-		sql1.append(")");
-		sql2.append(")");
-		sql.append(sql1).append(sql2);
-
-		log.debug("INSERT SQL : " + sql.toString());
-
-		Connection connection = null;
-		PreparedStatement ps = null;
-		int size = 0;
-		try {
-			connection = getConnection();
-			ps = connection.prepareStatement(sql.toString());
-			ps.clearParameters();
-			setParameters(map, columns, ps);
-
-			size = ps.executeUpdate();
-		} catch (SQLException e) {
-			log.error(e, e);
-			throw e;
-		} finally {
-			if (ps != null) {
-				ps.close();
-			}
-			closeConnection(connection);
-		}
-		return size;
-	}
-
-	private static void setParameters(Map<String, Object> map, String[] columns, PreparedStatement ps) throws SQLException {
-
-		for (int i = 0; i < columns.length; i++) {
-			Object value = ((Object[]) map.get(columns[i]))[1];
-
-			// translate javaBean Date field (java.util.Date) to SQL Date type
-			// (java.sql.Date) parameter
-			if (value instanceof java.util.Date) {
-				java.util.Date utilDate = (java.util.Date) value;
-				value = new java.sql.Date(utilDate.getTime());
-			}
-			ps.setObject(i + 1, value);
-		}
-	}
-
-	public static int deleteVO(Object bean) throws SQLException {
-
-		String tableName = getTableName(bean);
-
-		StringBuilder sql = new StringBuilder("DELETE FROM ").append(tableName);
-
-		Connection connection = null;
-		PreparedStatement ps = null;
-
-		Map<String, Object> map = getNotBlankFields(bean);
-		String[] columns = (String[]) map.keySet().toArray(new String[] {});
-
-		if (columns.length > 0) {
-			sql.append(" WHERE ");
-			for (int i = 0; i < columns.length; i++) {
-				if (i > 0) {
-					sql.append(" AND ");
-				}
-				sql.append(columns[i]).append(" = ? ");
-			}
-		}
-		log.debug("DELETE SQL : " + sql.toString());
-
-		try {
-			connection = getConnection();
-			ps = connection.prepareStatement(sql.toString());
-			ps.clearParameters();
-			setParameters(map, columns, ps);
-
-			return ps.executeUpdate();
-
-		} catch (SQLException e) {
-			log.error(e, e);
-			throw e;
-		} finally {
-			if (ps != null) {
-				ps.close();
-			}
-			closeConnection(connection);
-		}
-	}
-
 	private static void closeConnection(Connection connection) throws SQLException {
 
 		if (userThreadLocal.get() == null) {
@@ -457,10 +145,79 @@ public class DBUtils {
 		}
 	}
 
+	private static Map<String, Object> getNotBlankFields(Object bean) {
+
+		Field[] fields = bean.getClass().getDeclaredFields();
+		Map<String, Object> map = new LinkedHashMap<String, Object>();
+
+		try {
+			for (Field field : fields) {
+				String fieldName = field.getName();
+				Object value = PropertyUtils.getProperty(bean, fieldName);
+				if (value != null) {
+					map.put(fieldName, value);
+				}
+			}
+		} catch (Exception e) {
+			log.error(e, e);
+			throw new RuntimeException(e);
+		}
+		return map;
+	}
+
+	private static java.sql.Date toSqlDate(java.util.Date date) {
+		return new java.sql.Date(date.getTime());
+	}
+
+	private static java.util.Date toUtilDate(java.sql.Date date) {
+		return new java.util.Date(date.getTime());
+	}
+
+	private static List<String> getFieldNameList(Object bean) {
+
+		List<String> result = new ArrayList<String>();
+		Field[] fields = bean.getClass().getDeclaredFields();
+		for (Field field : fields) {
+			result.add(field.getName());
+		}
+		return result;
+	}
+
+	private static boolean isUtilDateType(Object bean, String fieldName) {
+
+		Field[] fields = bean.getClass().getDeclaredFields();
+		for (Field field : fields) {
+			if (field.getName().equals(fieldName)) {
+				String typeName = field.getType().getName();
+				return (typeName.equals("java.util.Date"));
+			}
+		}
+		return false;
+	}
+
+	private static void setParameters(Map<String, Object> fieldMap, PreparedStatement ps) throws SQLException {
+
+		ps.clearParameters();
+		String[] columns = (String[]) fieldMap.keySet().toArray(new String[] {});
+		for (int i = 0; i < columns.length; i++) {
+			Object value = fieldMap.get(columns[i]);
+
+			// translate java.util.Date to java.sql.Date
+			if (value instanceof java.util.Date) {
+				value = toSqlDate((java.util.Date) value);
+			}
+			ps.setObject(i + 1, value);
+		}
+	}
+
+	/**
+	 * @param fakeSql
+	 * @return 1. sql 2. parameter keys
+	 */
 	private static Object[] parseCustomSqlWithParams(String fakeSql) {
 
 		if (StringUtils.isBlank(fakeSql)) {
-			throw new IllegalArgumentException("can't parse empty sql ");
+			throw new IllegalArgumentException("parameter can't empty ");
 		}
 
 		String sql = fakeSql;
@@ -489,5 +246,225 @@ public class DBUtils {
 
 		return new Object[] { sql, keyList };
 	}
+	
+	private static Map<String, Object> createFieldMap(List<String> params, Map<String, Object> paramMap) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	public static <T> List<T> retrieveVOs(T bean) throws SQLException {
+
+		List<T> beanList = new ArrayList<T>();
+
+		StringBuilder sb = new StringBuilder();
+		String tableName = bean.getClass().getSimpleName();
+		sb.append("SELECT * FROM ").append(tableName);
+
+		Map<String, Object> fieldMap = getNotBlankFields(bean);
+		String[] fields = (String[]) fieldMap.keySet().toArray(new String[] {});
+		if (fields.length > 0) {
+			sb.append(" WHERE ");
+			for (int i = 0; i < fields.length; i++) {
+				if (i > 0) {
+					sb.append(fields[i]).append(" = ").append(" ? ");
+				}
+			}
+		}
+
+		String sql = sb.toString();
+
+		log.debug(" SQL : " + sql);
+
+		Connection connection = null;
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		ResultSetMetaData metaData = null;
+
+		try {
+			connection = getConnection();
+			ps = connection.prepareStatement(sql);
+			setParameters(fieldMap, ps);
+
+			rs = ps.executeQuery();
+			metaData = rs.getMetaData();
+			int columnCount = metaData.getColumnCount();
+
+			while (rs.next()) {
+				T vo = (T) bean.getClass().newInstance();
+				for (int i = 0; i < columnCount; i++) {
+					String columnName = metaData.getColumnName(i + 1);
+					Object columnValue = rs.getObject(i + 1);
+					// find filedName and columnName match
+					if (columnValue != null && getFieldNameList(bean).contains(columnName)) {
+						if (columnValue instanceof java.sql.Date && isUtilDateType(bean, columnName)) {
+							columnValue = toUtilDate((java.sql.Date) columnValue);
+						}
+						PropertyUtils.setProperty(vo, columnName, columnValue);
+					}
+				}
+				beanList.add(vo);
+			}
+
+		} catch (Exception e) {
+			log.error(e, e);
+			throw new SQLException(e);
+		} finally {
+			if (rs != null && !rs.isClosed()) {
+				rs.close();
+			}
+			if (ps != null && !ps.isClosed()) {
+				ps.close();
+			}
+			closeConnection(connection);
+		}
+		return beanList;
+	}
+
+	public static int deleteVO(Object bean) throws SQLException {
+
+		String tableName = bean.getClass().getSimpleName();
+		StringBuilder sb = new StringBuilder("DELETE FROM ").append(tableName);
+		Map<String, Object> fieldMap = getNotBlankFields(bean);
+		String[] fields = (String[]) fieldMap.keySet().toArray(new String[] {});
+		if (fields.length > 0) {
+			sb.append(" WHERE ");
+			for (int i = 0; i < fields.length; i++) {
+				if (i > 0) {
+					sb.append(fields[i]).append(" = ").append(" ? ");
+				}
+			}
+		}
+
+		String sql = sb.toString();
+		log.debug(" SQL : " + sql);
+
+		Connection connection = null;
+		PreparedStatement ps = null;
+		try {
+			connection = getConnection();
+			ps = connection.prepareStatement(sql);
+			setParameters(fieldMap, ps);
+			return ps.executeUpdate();
+		} catch (Exception e) {
+			log.error(e, e);
+			throw new SQLException(e);
+		} finally {
+			if (ps != null && !ps.isClosed()) {
+				ps.close();
+			}
+			closeConnection(connection);
+		}
+	}
+	
+	public static int insertVO(Object bean) throws SQLException {
+		
+		String tableName = bean.getClass().getSimpleName();
+		Map<String, Object> fieldMap = getNotBlankFields(bean);
+		String[] fields = (String[]) fieldMap.keySet().toArray(new String[] {});
+		
+		if(fields.length == 0){
+			throw new IllegalArgumentException("field value of bean should't all empty ");
+		}
+		
+		StringBuilder sql1 = new StringBuilder();
+		StringBuilder sql2 = new StringBuilder();
+		
+		sql1.append(" INSERT INTO ").append(tableName).append(" (");
+		sql2.append("VALUES (");
+
+		for (int i = 0; i < fields.length; i++) {
+			String column = fields[i];
+			sql1.append(column);
+			sql2.append("?");
+			if (i < fields.length - 1) {
+				sql1.append(",");
+				sql2.append(",");
+			}
+		}
+		sql1.append(")");
+		sql2.append(")");
+		String sql = sql1.append(sql2).toString();
+
+		log.debug(" SQL : " + sql.toString());
+		
+		Connection connection = null;
+		PreparedStatement ps = null;
+		
+		try {
+			connection = getConnection();
+			ps = connection.prepareStatement(sql.toString());
+			setParameters(fieldMap,ps);
+			return ps.executeUpdate();
+			
+		} catch (SQLException e) {
+			log.error(e, e);
+			throw e;
+		} finally {
+			if (ps != null && !ps.isClosed()) {
+				ps.close();
+			}
+			closeConnection(connection);
+		}
+	}
+	
+	public static List<Map<String, Object>> retrieveMaps(String fakeSql, Map<String, Object> paramMap) throws SQLException {
+		
+		List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+
+		Object[] sqlWithParams = parseCustomSqlWithParams(fakeSql);
+		String sql = (String) sqlWithParams[0];
+		List<String> params = (List<String>) sqlWithParams[1];
+		Map<String, Object> fieldMap =  createFieldMap(params,paramMap);
+		
+		Connection connection = null;
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+
+		try {
+			connection = getConnection();
+			ps = connection.prepareStatement(sql);
+			// to do list java.sql.Date
+			for (int i = 0; i < params.size(); i++) {
+				ps.setObject(i + 1, paramMap.get(params.get(i)));
+			}
+			rs = ps.executeQuery();
+
+			ResultSetMetaData metaData = rs.getMetaData();
+			int columnCount = metaData.getColumnCount();
+
+			while (rs.next()) {
+				Map<String, Object> map = new HashMap<String, Object>();
+				for (int i = 0; i < columnCount; i++) {
+					String columnName = metaData.getColumnName(i + 1);
+					Object columnValue = rs.getObject(i + 1);
+					
+					if (columnValue != null) {
+						if (columnValue instanceof java.sql.Date) {
+							java.sql.Date utilDate = (java.sql.Date) columnValue;
+							columnValue = new java.util.Date(utilDate.getTime());
+						}
+					}
+					map.put(columnName, columnValue);
+				}
+				result.add(map);
+			}
+			connection.close();
+		} catch (SQLException e) {
+			log.error(e, e);
+			throw e;
+		} finally {
+			if (rs != null && !rs.isClosed()) {
+				rs.close();
+			}
+			if (ps != null && !ps.isClosed()) {
+				ps.close();
+			}
+			closeConnection(connection);
+		}
+
+		return result;
+	}
+
+	
 
 }
