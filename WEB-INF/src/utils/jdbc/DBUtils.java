@@ -246,10 +246,14 @@ public class DBUtils {
 
 		return new Object[] { sql, keyList };
 	}
-	
+
 	private static Map<String, Object> createFieldMap(List<String> params, Map<String, Object> paramMap) {
-		// TODO Auto-generated method stub
-		return null;
+
+		Map<String, Object> map = new LinkedHashMap<String, Object>();
+		for (String key : params) {
+			map.put(key, paramMap.get(key));
+		}
+		return map;
 	}
 
 	public static <T> List<T> retrieveVOs(T bean) throws SQLException {
@@ -266,8 +270,9 @@ public class DBUtils {
 			sb.append(" WHERE ");
 			for (int i = 0; i < fields.length; i++) {
 				if (i > 0) {
-					sb.append(fields[i]).append(" = ").append(" ? ");
+					sb.append(" AND ");
 				}
+				sb.append(fields[i]).append(" = ").append(" ? ");
 			}
 		}
 
@@ -309,10 +314,10 @@ public class DBUtils {
 			log.error(e, e);
 			throw new SQLException(e);
 		} finally {
-			if (rs != null && !rs.isClosed()) {
+			if (rs != null) {
 				rs.close();
 			}
-			if (ps != null && !ps.isClosed()) {
+			if (ps != null) {
 				ps.close();
 			}
 			closeConnection(connection);
@@ -340,35 +345,37 @@ public class DBUtils {
 
 		Connection connection = null;
 		PreparedStatement ps = null;
+		int count = 0;
 		try {
 			connection = getConnection();
 			ps = connection.prepareStatement(sql);
 			setParameters(fieldMap, ps);
-			return ps.executeUpdate();
+			count = ps.executeUpdate();
 		} catch (Exception e) {
 			log.error(e, e);
 			throw new SQLException(e);
 		} finally {
-			if (ps != null && !ps.isClosed()) {
+			if (ps != null) {
 				ps.close();
 			}
 			closeConnection(connection);
 		}
+		return count;
 	}
-	
+
 	public static int insertVO(Object bean) throws SQLException {
-		
+
 		String tableName = bean.getClass().getSimpleName();
 		Map<String, Object> fieldMap = getNotBlankFields(bean);
 		String[] fields = (String[]) fieldMap.keySet().toArray(new String[] {});
-		
-		if(fields.length == 0){
+
+		if (fields.length == 0) {
 			throw new IllegalArgumentException("field value of bean should't all empty ");
 		}
-		
+
 		StringBuilder sql1 = new StringBuilder();
 		StringBuilder sql2 = new StringBuilder();
-		
+
 		sql1.append(" INSERT INTO ").append(tableName).append(" (");
 		sql2.append("VALUES (");
 
@@ -386,77 +393,76 @@ public class DBUtils {
 		String sql = sql1.append(sql2).toString();
 
 		log.debug(" SQL : " + sql.toString());
-		
+
 		Connection connection = null;
 		PreparedStatement ps = null;
-		
+
 		try {
 			connection = getConnection();
 			ps = connection.prepareStatement(sql.toString());
-			setParameters(fieldMap,ps);
+			setParameters(fieldMap, ps);
 			return ps.executeUpdate();
-			
+
 		} catch (SQLException e) {
 			log.error(e, e);
 			throw e;
 		} finally {
-			if (ps != null && !ps.isClosed()) {
+			if (ps != null) {
 				ps.close();
 			}
 			closeConnection(connection);
 		}
 	}
-	
-	public static List<Map<String, Object>> retrieveMaps(String fakeSql, Map<String, Object> paramMap) throws SQLException {
-		
+
+	public static List<Map<String, Object>> retrieveMaps(String fakeSql) throws SQLException {
+		return retrieveMaps(fakeSql, null);
+	}
+		public static List<Map<String, Object>> retrieveMaps(String fakeSql, Map<String, Object> paramMap) throws SQLException {
+
 		List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
 
 		Object[] sqlWithParams = parseCustomSqlWithParams(fakeSql);
 		String sql = (String) sqlWithParams[0];
 		List<String> params = (List<String>) sqlWithParams[1];
-		Map<String, Object> fieldMap =  createFieldMap(params,paramMap);
-		
+		Map<String, Object> fieldMap = createFieldMap(params, paramMap);
+
 		Connection connection = null;
 		PreparedStatement ps = null;
 		ResultSet rs = null;
+		ResultSetMetaData metaData = null;
 
 		try {
 			connection = getConnection();
 			ps = connection.prepareStatement(sql);
-			// to do list java.sql.Date
-			for (int i = 0; i < params.size(); i++) {
-				ps.setObject(i + 1, paramMap.get(params.get(i)));
-			}
+			setParameters(fieldMap, ps);
 			rs = ps.executeQuery();
 
-			ResultSetMetaData metaData = rs.getMetaData();
+			metaData = rs.getMetaData();
 			int columnCount = metaData.getColumnCount();
 
 			while (rs.next()) {
 				Map<String, Object> map = new HashMap<String, Object>();
+
 				for (int i = 0; i < columnCount; i++) {
 					String columnName = metaData.getColumnName(i + 1);
 					Object columnValue = rs.getObject(i + 1);
-					
-					if (columnValue != null) {
-						if (columnValue instanceof java.sql.Date) {
-							java.sql.Date utilDate = (java.sql.Date) columnValue;
-							columnValue = new java.util.Date(utilDate.getTime());
-						}
+
+					if (columnValue != null && columnValue instanceof java.sql.Date) {
+						columnValue = toUtilDate((java.sql.Date) columnValue);
 					}
+
 					map.put(columnName, columnValue);
 				}
 				result.add(map);
 			}
-			connection.close();
 		} catch (SQLException e) {
 			log.error(e, e);
 			throw e;
 		} finally {
-			if (rs != null && !rs.isClosed()) {
+			if (rs != null) {
 				rs.close();
 			}
-			if (ps != null && !ps.isClosed()) {
+			if (ps != null) {
 				ps.close();
 			}
 			closeConnection(connection);
@@ -465,6 +471,31 @@ public class DBUtils {
 		return result;
 	}
 
-	
+	public static int executeUpdate(String fakeSql, Map<String, Object> paramMap) throws SQLException {
 
+		Object[] sqlWithParams = parseCustomSqlWithParams(fakeSql);
+		String sql = (String) sqlWithParams[0];
+		List<String> params = (List<String>) sqlWithParams[1];
+		Map<String, Object> fieldMap = createFieldMap(params, paramMap);
+		
+		Connection connection = null;
+		PreparedStatement ps = null;
+		int count = 0;
+		try {
+			connection = getConnection();
+			ps = connection.prepareStatement(sql);
+			setParameters(fieldMap, ps);
+			count = ps.executeUpdate();
+		} catch (SQLException e) {
+			log.error(e, e);
+			throw e;
+		} finally {
+			if (ps != null) {
+				ps.close();
+			}
+			closeConnection(connection);
+		}
+		return count;
+	}
+	
 }

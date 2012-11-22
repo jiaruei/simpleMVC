@@ -3,6 +3,7 @@ package utils.date;
 import java.text.ParseException;
 import java.util.Date;
 
+import org.apache.commons.lang.time.DateFormatUtils;
 import org.apache.commons.lang.time.DateUtils;
 import org.apache.log4j.Logger;
 
@@ -24,8 +25,16 @@ public class DateHelper {
 			throw new RuntimeException(e);
 		}
 	}
+	
+	public static String toY2kStr(Date date){
+		return DateFormatUtils.format(date, "yyyy-MM-dd");
+	}
 
-	public static Date rocStringToDate(String rocDate) {
+	public static String y2kTodayStr(){
+		return DateFormatUtils.format(new Date(), "yyyy-MM-dd");
+	}
+	
+	public static Date rocStrToDate(String rocDate) {
 		
 		int length = rocDate.length();
 		try {
@@ -35,6 +44,7 @@ public class DateHelper {
 			throw new RuntimeException(e);
 		}
 	}
+	
 	
 }
 
