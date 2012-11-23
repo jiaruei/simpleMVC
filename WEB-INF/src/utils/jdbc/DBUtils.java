@@ -53,7 +53,8 @@ public class DBUtils {
 			init(p);
 		}
 	}
-
+	
+	@Deprecated
 	public static void beginTransaction() {
 
 		if (userThreadLocal.get() != null) {
@@ -71,7 +72,8 @@ public class DBUtils {
 			throw new RuntimeException(e);
 		}
 	}
-
+	
+	@Deprecated
 	public static void commitTransaction() {
 
 		if (userThreadLocal.get() != null) {
@@ -96,7 +98,8 @@ public class DBUtils {
 			throw new RuntimeException("error operator ,miss beginTransaction operator ");
 		}
 	}
-
+	
+	@Deprecated
 	public static void rollbackTransaction() {
 
 		if (userThreadLocal.get() != null) {
@@ -121,7 +124,7 @@ public class DBUtils {
 		}
 	}
 
-	public static Connection getConnection() throws SQLException {
+	protected static Connection getConnection() throws SQLException {
 
 		if (userThreadLocal.get() != null) {
 			return userThreadLocal.get();
@@ -136,7 +139,7 @@ public class DBUtils {
 	 * @param connection
 	 * @throws SQLException
 	 */
-	private static void closeConnection(Connection connection) throws SQLException {
+	protected static void closeConnection(Connection connection) throws SQLException {
 
 		if (userThreadLocal.get() == null) {
 			if (connection != null) {
@@ -256,7 +259,7 @@ public class DBUtils {
 		return map;
 	}
 
-	public static <T> List<T> retrieveVOs(T bean) throws SQLException {
+	protected static <T> List<T> retrieveVOos(T bean) throws SQLException {
 
 		List<T> beanList = new ArrayList<T>();
 
@@ -325,7 +328,7 @@ public class DBUtils {
 		return beanList;
 	}
 
-	public static int deleteVO(Object bean) throws SQLException {
+	protected static <T> int deleteVo(T bean) throws SQLException {
 
 		String tableName = bean.getClass().getSimpleName();
 		StringBuilder sb = new StringBuilder("DELETE FROM ").append(tableName);
@@ -363,7 +366,7 @@ public class DBUtils {
 		return count;
 	}
 
-	public static int insertVO(Object bean) throws SQLException {
+	protected static <T> int insertVo(T bean) throws SQLException {
 
 		String tableName = bean.getClass().getSimpleName();
 		Map<String, Object> fieldMap = getNotBlankFields(bean);
@@ -414,10 +417,11 @@ public class DBUtils {
 		}
 	}
 
-	public static List<Map<String, Object>> retrieveMaps(String fakeSql) throws SQLException {
+	protected static List<Map<String, Object>> retrieveMaps(String fakeSql) throws SQLException {
 		return retrieveMaps(fakeSql, null);
 	}
-		public static List<Map<String, Object>> retrieveMaps(String fakeSql, Map<String, Object> paramMap) throws SQLException {
+
+	protected static List<Map<String, Object>> retrieveMaps(String fakeSql, Map<String, Object> paramMap) throws SQLException {
 
 		List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
 
@@ -471,7 +475,7 @@ public class DBUtils {
 		return result;
 	}
 
-	public static int executeUpdate(String fakeSql, Map<String, Object> paramMap) throws SQLException {
+	protected static int executeUpdate(String fakeSql, Map<String, Object> paramMap) throws SQLException {
 
 		Object[] sqlWithParams = parseCustomSqlWithParams(fakeSql);
 		String sql = (String) sqlWithParams[0];
