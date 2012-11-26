@@ -28,7 +28,7 @@ public class FormAction {
 		
 		List<Camel> camelList = Collections.EMPTY_LIST;
 		try {
-			camelList = DBUtils.retrieveVOs(new Camel());
+			camelList = DBUtils.retrieveVOos(new Camel());
 			Camel bean = new Camel();
 			bean.setCol1(name);
 			bean.setCol2("小魚");
@@ -45,7 +45,7 @@ public class FormAction {
 		try {
 			DBUtils.beginTransaction();
 
-			DBUtils.deleteVO(new Camel());
+			DBUtils.deleteVo(new Camel());
 
 			Camel camel1 = new Camel();
 			camel1.setCol1("1");
@@ -57,8 +57,8 @@ public class FormAction {
 			camel2.setCol2("英文");
 			camel2.setCol3(new BigDecimal(886922.8));
 
-			DBUtils.insertVO(camel1);
-			DBUtils.insertVO(camel2);
+			DBUtils.insertVo(camel1);
+			DBUtils.insertVo(camel2);
 
 			DBUtils.commitTransaction();
 
@@ -67,7 +67,7 @@ public class FormAction {
 			DBUtils.rollbackTransaction();
 		}
 		try {
-			req.setAttribute("camelList", DBUtils.retrieveVOs(new Camel())) ;
+			req.setAttribute("camelList", DBUtils.retrieveVOos(new Camel())) ;
 		} catch (SQLException e) {
 			log.error(e, e);
 		}
