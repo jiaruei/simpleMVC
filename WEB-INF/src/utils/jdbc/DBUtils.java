@@ -213,6 +213,22 @@ public class DBUtils {
 		}
 	}
 
+	private static void setParameters(List<Object> valueList, PreparedStatement ps) throws SQLException {
+		
+		ps.clearParameters();
+		
+		if(valueList != null && !valueList.isEmpty()){
+			for (int i = 0; i < valueList.size(); i++) {
+				Object value = valueList.get(i);
+				// translate java.util.Date to java.sql.Date
+				if (value instanceof java.util.Date) {
+					value = toSqlDate((java.util.Date) value);
+				}
+				ps.setObject(i + 1, value);
+			}
+		}
+	}
+
 	/**
 	 * @param fakeSql
 	 * @return 1. sql 2. parameter keys
@@ -257,6 +273,16 @@ public class DBUtils {
 			map.put(key, paramMap.get(key));
 		}
 		return map;
+	}
+
+	private static List<Object> createValueList(List<String> params, Map<String, Object> paramMap) {
+		
+		List<Object> valueList = new ArrayList<Object>();
+		for (String parameter : params) {
+			valueList.add(paramMap.get(parameter));
+		}
+		
+		return valueList;
 	}
 
 	protected static <T> List<T> retrieveVOos(T bean) throws SQLException {
@@ -417,18 +443,31 @@ public class DBUtils {
 		}
 	}
 
-	protected static List<Map<String, Object>> retrieveMaps(String fakeSql) throws SQLException {
-		return retrieveMaps(fakeSql, null);
+	protected static List<Map<String, Object>> retrieveMaps(String sql) throws SQLException {
+		return executeSqlToMaps(sql,null);
 	}
-
-	protected static List<Map<String, Object>> retrieveMaps(String fakeSql, Map<String, Object> paramMap) throws SQLException {
-
-		List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
-
+	
+	protected static List<Map<String, Object>> retrieveMaps(String sql,Object[] values) throws SQLException {
+		
+		List<Object> valueList = new ArrayList<Object>();
+		for (Object object : values) {
+			valueList.add(object);
+		}
+		return executeSqlToMaps(sql,valueList);
+	}
+	
+	protected static List<Map<String, Object>> retrieveMaps(String fakeSql,Map<String, Object> paramMap) throws SQLException {
+		
 		Object[] sqlWithParams = parseCustomSqlWithParams(fakeSql);
 		String sql = (String) sqlWithParams[0];
-		List<String> params = (List<String>) sqlWithParams[1];
-		Map<String, Object> fieldMap = createFieldMap(params, paramMap);
+		List<String> paramtersList = (List<String>) sqlWithParams[1];
+		List<Object> valueList = createValueList(paramtersList, paramMap);
+		return executeSqlToMaps(sql,valueList);
+	}
+
+	private static List<Map<String, Object>> executeSqlToMaps(String sql, List<Object> valueList) throws SQLException {
+
+		List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
 
 		Connection connection = null;
 		PreparedStatement ps = null;
@@ -438,7 +477,7 @@ public class DBUtils {
 		try {
 			connection = getConnection();
 			ps = connection.prepareStatement(sql);
-			setParameters(fieldMap, ps);
+			setParameters(valueList, ps);
 			rs = ps.executeQuery();
 
 			metaData = rs.getMetaData();
