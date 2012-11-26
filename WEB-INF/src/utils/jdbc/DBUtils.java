@@ -134,7 +134,7 @@ public class DBUtils {
 	}
 
 	/**
-	 * 若包含一連串 operator 則 不 close connection
+	 * ­Y¥]§t¤@³s¦ê operator «h ¤£ close connection
 	 * 
 	 * @param connection
 	 * @throws SQLException
@@ -251,7 +251,7 @@ public class DBUtils {
 				keyList.add(key);
 				int position = StringUtils.indexOf(fakeSql, "'");
 				if (position == -1) {
-					throw new RuntimeException("語法不正確 少 結尾符號 ' ");
+					throw new RuntimeException("»yªk¤£¥¿½T ¤Ö µ²§À²Å¸¹ ' ");
 				}
 				fakeSql = StringUtils.substring(fakeSql, position + 1);
 			}
