@@ -53,7 +53,7 @@ public class DBUtils {
 			init(p);
 		}
 	}
-	
+
 	@Deprecated
 	public static void beginTransaction() {
 
@@ -72,7 +72,7 @@ public class DBUtils {
 			throw new RuntimeException(e);
 		}
 	}
-	
+
 	@Deprecated
 	public static void commitTransaction() {
 
@@ -98,7 +98,7 @@ public class DBUtils {
 			throw new RuntimeException("error operator ,miss beginTransaction operator ");
 		}
 	}
-	
+
 	@Deprecated
 	public static void rollbackTransaction() {
 
@@ -134,7 +134,7 @@ public class DBUtils {
 	}
 
 	/**
-	 * 若包含一連串 operator 則 不 close connection
+	 * ­Y¥]§t¤@³s¦ê operator «h ¤£ close connection
 	 * 
 	 * @param connection
 	 * @throws SQLException
@@ -214,10 +214,10 @@ public class DBUtils {
 	}
 
 	private static void setParameters(List<Object> valueList, PreparedStatement ps) throws SQLException {
-		
+
 		ps.clearParameters();
-		
-		if(valueList != null && !valueList.isEmpty()){
+
+		if (valueList != null && !valueList.isEmpty()) {
 			for (int i = 0; i < valueList.size(); i++) {
 				Object value = valueList.get(i);
 				// translate java.util.Date to java.sql.Date
@@ -251,7 +251,7 @@ public class DBUtils {
 				keyList.add(key);
 				int position = StringUtils.indexOf(fakeSql, "'");
 				if (position == -1) {
-					throw new RuntimeException("語法不正確 少 結尾符號 ' ");
+					throw new RuntimeException("»yªk¤£¥¿½T ¤Ö µ²§À²Å¸¹ ' ");
 				}
 				fakeSql = StringUtils.substring(fakeSql, position + 1);
 			}
@@ -277,11 +277,15 @@ public class DBUtils {
 
 	private static List<Object> createValueList(List<String> params, Map<String, Object> paramMap) {
 		
-		List<Object> valueList = new ArrayList<Object>();
-		for (String parameter : params) {
-			valueList.add(paramMap.get(parameter));
-		}
+		return createValueList(params.toArray(new String[]{}), paramMap);
+	}
+
+	private static List<Object> createValueList(String[] fields, Map<String, Object> fieldMap) {
 		
+		List<Object> valueList = new ArrayList<Object>();
+		for (String parameter : fields) {
+			valueList.add(fieldMap.get(parameter));
+		}
 		return valueList;
 	}
 
@@ -317,7 +321,7 @@ public class DBUtils {
 		try {
 			connection = getConnection();
 			ps = connection.prepareStatement(sql);
-			setParameters(fieldMap, ps);
+			setParameters(createValueList(fields, fieldMap), ps);
 
 			rs = ps.executeQuery();
 			metaData = rs.getMetaData();
@@ -378,7 +382,7 @@ public class DBUtils {
 		try {
 			connection = getConnection();
 			ps = connection.prepareStatement(sql);
-			setParameters(fieldMap, ps);
+			setParameters(createValueList(fields, fieldMap), ps);
 			count = ps.executeUpdate();
 		} catch (Exception e) {
 			log.error(e, e);
@@ -429,7 +433,7 @@ public class DBUtils {
 		try {
 			connection = getConnection();
 			ps = connection.prepareStatement(sql.toString());
-			setParameters(fieldMap, ps);
+			setParameters(createValueList(fields, fieldMap), ps);
 			return ps.executeUpdate();
 
 		} catch (SQLException e) {
@@ -444,25 +448,25 @@ public class DBUtils {
 	}
 
 	protected static List<Map<String, Object>> retrieveMaps(String sql) throws SQLException {
-		return executeSqlToMaps(sql,null);
+		return executeSqlToMaps(sql, null);
 	}
-	
-	protected static List<Map<String, Object>> retrieveMaps(String sql,Object[] values) throws SQLException {
-		
+
+	protected static List<Map<String, Object>> retrieveMaps(String sql, Object[] values) throws SQLException {
+
 		List<Object> valueList = new ArrayList<Object>();
 		for (Object object : values) {
 			valueList.add(object);
 		}
-		return executeSqlToMaps(sql,valueList);
-	}
-	
-	protected static List<Map<String, Object>> retrieveMaps(String fakeSql,Map<String, Object> paramMap) throws SQLException {
-		
+		return executeSqlToMaps(sql, valueList);
+	} 
+
+	protected static List<Map<String, Object>> retrieveMaps(String fakeSql, Map<String, Object> paramMap) throws SQLException {
+
 		Object[] sqlWithParams = parseCustomSqlWithParams(fakeSql);
 		String sql = (String) sqlWithParams[0];
 		List<String> paramtersList = (List<String>) sqlWithParams[1];
 		List<Object> valueList = createValueList(paramtersList, paramMap);
-		return executeSqlToMaps(sql,valueList);
+		return executeSqlToMaps(sql, valueList);
 	}
 
 	private static List<Map<String, Object>> executeSqlToMaps(String sql, List<Object> valueList) throws SQLException {
@@ -520,14 +524,14 @@ public class DBUtils {
 		String sql = (String) sqlWithParams[0];
 		List<String> params = (List<String>) sqlWithParams[1];
 		Map<String, Object> fieldMap = createFieldMap(params, paramMap);
-		
+
 		Connection connection = null;
 		PreparedStatement ps = null;
 		int count = 0;
 		try {
 			connection = getConnection();
 			ps = connection.prepareStatement(sql);
-			setParameters(fieldMap, ps);
+			setParameters(createValueList(params, fieldMap), ps);
 			count = ps.executeUpdate();
 		} catch (SQLException e) {
 			log.error(e, e);
@@ -540,5 +544,5 @@ public class DBUtils {
 		}
 		return count;
 	}
-	
+
 }
