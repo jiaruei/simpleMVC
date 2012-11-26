@@ -312,7 +312,6 @@ public class DBUtils {
 		String sql = sb.toString();
 
 		log.debug(" SQL : " + sql);
-		
 
 		Connection connection = null;
 		PreparedStatement ps = null;
