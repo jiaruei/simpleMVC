@@ -8,46 +8,56 @@ import java.util.ResourceBundle;
 import org.apache.log4j.Logger;
 
 public class JdbcTemplate {
-	
+
 	private static Logger log = Logger.getLogger(JdbcTemplate.class);
-	
+
 	public JdbcTemplate() {
 	}
 
-	public static void initialConfig(String rootConfigFileName){
-	
+	public static void initialConfig(String rootConfigFileName) {
+
 		ResourceBundle config = ResourceBundle.getBundle(rootConfigFileName);
 		try {
 			DBUtils.init(config);
 		} catch (Exception e) {
-			log.error(e,e);
+			log.error(e, e);
 			throw new RuntimeException(e);
 		}
 	}
-	
-	public static <T> List<T> retrieveVos(T bean) throws SQLException{
+
+	public static <T> List<T> retrieveVos(T bean) throws SQLException {
 		return DBUtils.retrieveVOos(bean);
 	}
 
-	public static <T> int insertVo(T bean) throws SQLException{
+	public static <T> int insertVo(T bean) throws SQLException {
 		return DBUtils.insertVo(bean);
 	}
 
-	public static <T> int deleteVo(T bean) throws SQLException{
+	public static <T> int deleteVo(T bean) throws SQLException {
 		return DBUtils.deleteVo(bean);
 	}
 
-	
 	public static List<Map<String, Object>> retrieveMaps(String sql) throws SQLException {
 		return DBUtils.retrieveMaps(sql);
 	}
-	
+
 	public static List<Map<String, Object>> retrieveMaps(String sql, Object[] values) throws SQLException {
 		return DBUtils.retrieveMaps(sql, values);
 	}
 
-	public static List<Map<String, Object>> retrieveMaps(String fakeSql, Map<String, Object> paramMap) throws SQLException {		
-		return DBUtils.retrieveMaps(fakeSql, paramMap);
+	public static List<Map<String, Object>> retrieveMaps(String namedParameterSql, Map<String, Object> paramMap) throws SQLException {
+		return DBUtils.retrieveMaps(namedParameterSql, paramMap);
 	}
 
+	public static int executeUpdate(String sql) throws SQLException {
+		return DBUtils.executeUpdate(sql);
+	}
+
+	public static int executeUpdate(String sql, Object[] values) throws SQLException {
+		return DBUtils.executeUpdate(sql, values);
+	}
+
+	public static int executeUpdate(String namedParameterSql, Map<String, Object> paramMap) throws SQLException {
+		return DBUtils.executeUpdate(namedParameterSql, paramMap);
+	}
 }

@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -453,16 +454,12 @@ public class DBUtils {
 
 	protected static List<Map<String, Object>> retrieveMaps(String sql, Object[] values) throws SQLException {
 
-		List<Object> valueList = new ArrayList<Object>();
-		for (Object object : values) {
-			valueList.add(object);
-		}
-		return executeSqlToMaps(sql, valueList);
+		return executeSqlToMaps(sql, Arrays.asList(values));
 	} 
 
-	protected static List<Map<String, Object>> retrieveMaps(String fakeSql, Map<String, Object> paramMap) throws SQLException {
+	protected static List<Map<String, Object>> retrieveMaps(String namedParameterSql, Map<String, Object> paramMap) throws SQLException {
 
-		Object[] sqlWithParams = parseCustomSqlWithParams(fakeSql);
+		Object[] sqlWithParams = parseCustomSqlWithParams(namedParameterSql);
 		String sql = (String) sqlWithParams[0];
 		List<String> paramtersList = (List<String>) sqlWithParams[1];
 		List<Object> valueList = createValueList(paramtersList, paramMap);
@@ -518,20 +515,35 @@ public class DBUtils {
 		return result;
 	}
 
-	protected static int executeUpdate(String fakeSql, Map<String, Object> paramMap) throws SQLException {
+	protected static int executeUpdate(String sql) throws SQLException {
 
-		Object[] sqlWithParams = parseCustomSqlWithParams(fakeSql);
+		return executeSqlUpdate(sql,null);
+	}
+	
+	protected static int executeUpdate(String sql, Object[] values) throws SQLException {
+		
+		return executeSqlUpdate(sql,Arrays.asList(values));
+	}
+	
+	protected static int executeUpdate(String namedParameterSql, Map<String, Object> paramMap) throws SQLException {
+		
+		Object[] sqlWithParams = parseCustomSqlWithParams(namedParameterSql);
 		String sql = (String) sqlWithParams[0];
 		List<String> params = (List<String>) sqlWithParams[1];
 		Map<String, Object> fieldMap = createFieldMap(params, paramMap);
+		
+		return executeSqlUpdate(sql,createValueList(params, paramMap));
+	}
 
+	private static int executeSqlUpdate(String sql, List<Object> valueList) throws SQLException {
+		
 		Connection connection = null;
 		PreparedStatement ps = null;
 		int count = 0;
 		try {
 			connection = getConnection();
 			ps = connection.prepareStatement(sql);
-			setParameters(createValueList(params, fieldMap), ps);
+			setParameters(valueList, ps);
 			count = ps.executeUpdate();
 		} catch (SQLException e) {
 			log.error(e, e);
