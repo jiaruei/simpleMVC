@@ -232,9 +232,10 @@ public class DBUtils {
 
 	/**
 	 * @param fakeSql
+	 * @param paramMap 
 	 * @return 1. sql 2. parameter keys
 	 */
-	private static Object[] parseCustomSqlWithParams(String fakeSql) {
+	private static Object[] parseCustomSqlWithParams(String fakeSql, Map<String, Object> paramMap) {
 
 		if (StringUtils.isBlank(fakeSql)) {
 			throw new IllegalArgumentException("parameter can't empty ");
@@ -242,6 +243,7 @@ public class DBUtils {
 
 		String sql = fakeSql;
 		List<String> keyList = new ArrayList<String>();
+		List<Object> valueList = new ArrayList<Object>();
 
 		// get key parameter ex: ':column' -> column
 		while (fakeSql.length() != 0) {
@@ -261,10 +263,12 @@ public class DBUtils {
 		for (String key : keyList) {
 			String replace = "':" + key + "'";
 			sql = StringUtils.replace(sql, replace, "?");
+			valueList.add(paramMap.get(key));
 		}
+		
 		log.debug("parse SQL : " + sql);
 
-		return new Object[] { sql, keyList };
+		return new Object[] { sql, valueList };
 	}
 
 	private static Map<String, Object> createFieldMap(List<String> params, Map<String, Object> paramMap) {
@@ -459,10 +463,9 @@ public class DBUtils {
 
 	protected static List<Map<String, Object>> retrieveMaps(String namedParameterSql, Map<String, Object> paramMap) throws SQLException {
 
-		Object[] sqlWithParams = parseCustomSqlWithParams(namedParameterSql);
+		Object[] sqlWithParams = parseCustomSqlWithParams(namedParameterSql,paramMap);
 		String sql = (String) sqlWithParams[0];
-		List<String> paramtersList = (List<String>) sqlWithParams[1];
-		List<Object> valueList = createValueList(paramtersList, paramMap);
+		List<Object> valueList = (List<Object>) sqlWithParams[1];
 		return executeSqlToMaps(sql, valueList);
 	}
 
@@ -527,12 +530,11 @@ public class DBUtils {
 	
 	protected static int executeUpdate(String namedParameterSql, Map<String, Object> paramMap) throws SQLException {
 		
-		Object[] sqlWithParams = parseCustomSqlWithParams(namedParameterSql);
+		Object[] sqlWithParams = parseCustomSqlWithParams(namedParameterSql,paramMap);
 		String sql = (String) sqlWithParams[0];
-		List<String> params = (List<String>) sqlWithParams[1];
-		Map<String, Object> fieldMap = createFieldMap(params, paramMap);
+		List<Object> valueList = (List<Object>) sqlWithParams[1];
 		
-		return executeSqlUpdate(sql,createValueList(params, paramMap));
+		return executeSqlUpdate(sql,valueList);
 	}
 
 	private static int executeSqlUpdate(String sql, List<Object> valueList) throws SQLException {
