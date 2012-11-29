@@ -16,11 +16,11 @@ public class TransactionManager {
 		if(connectionThreadLocal.get() != null){
 			connectionThreadLocal.set(null);
 		}
-		
 		try {
 			Connection currentConnection = DBUtils.getConnection();
 			currentConnection.setAutoCommit(false);
 			connectionThreadLocal.set(currentConnection);
+			log.debug("start database transaction in this thread.");
 		} catch (SQLException e) {
 			log.error(e,e);
 			throw new RuntimeException(e);
@@ -52,6 +52,7 @@ public class TransactionManager {
 			try {
 				currentConnection.rollback();
 				connectionThreadLocal.set(null);
+				log.debug("rollback transaction in this thread.");
 			} catch (SQLException e) {
 				log.error(e,e);
 				throw new RuntimeException(e);
