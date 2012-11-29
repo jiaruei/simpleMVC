@@ -42,7 +42,7 @@ public class DBUtilsTest {
 		try {
 			Camel camel = new Camel();
 			DBUtils.deleteVo(camel);
-			List<Camel> camelList = DBUtils.retrieveVOos(camel);
+			List<Camel> camelList = DBUtils.retrieveVos(camel);
 			Assert.assertEquals(0, camelList.size());
 		} catch (SQLException e) {
 			fail(e.getMessage());
@@ -107,7 +107,7 @@ public class DBUtilsTest {
 
 		Camel bean = new Camel();
 		try {
-			assertEquals(2, DBUtils.retrieveVOos(bean).size());
+			assertEquals(2, DBUtils.retrieveVos(bean).size());
 		} catch (SQLException e) {
 			fail(e.getMessage());
 		}
@@ -123,7 +123,7 @@ public class DBUtilsTest {
 		}
 
 		try {
-			assertEquals(1, DBUtils.retrieveVOos(bean).size());
+			assertEquals(1, DBUtils.retrieveVos(bean).size());
 		} catch (SQLException e) {
 			fail(e.getMessage());
 		}
@@ -172,7 +172,7 @@ public class DBUtilsTest {
 		Camel bean = new Camel();
 		bean.setCol1("C");
 		try {
-			List<Camel> list = DBUtils.retrieveVOos(bean);
+			List<Camel> list = DBUtils.retrieveVos(bean);
 			assertEquals(1, list.size());
 			bean = list.get(0);
 
@@ -185,7 +185,7 @@ public class DBUtilsTest {
 		bean = new Camel();
 		bean.setCol1("A");
 		try {
-			List<Camel> list = DBUtils.retrieveVOos(bean);
+			List<Camel> list = DBUtils.retrieveVos(bean);
 			assertEquals(0, list.size());
 		} catch (SQLException e) {
 			fail(e.getMessage());
@@ -199,7 +199,7 @@ public class DBUtilsTest {
 
 		List<Camel> list = null;
 		try {
-			list = DBUtils.retrieveVOos(bean);
+			list = DBUtils.retrieveVos(bean);
 			assertEquals(2, list.size());
 
 			Camel camel = list.get(0);

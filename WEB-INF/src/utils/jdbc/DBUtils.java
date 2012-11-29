@@ -26,27 +26,27 @@ public class DBUtils {
 
 	private static Logger log = Logger.getLogger(DBUtils.class);
 
-	private static ComboPooledDataSource cpds = null;
+	private static ComboPooledDataSource pooledDataSource = null;
 
 	public static final ThreadLocal<Connection> userThreadLocal = new ThreadLocal<Connection>();
 
 	public static void init(Properties config) throws Exception {
-
-		if (cpds == null) {
-			cpds = new ComboPooledDataSource();
-			cpds.setDriverClass(config.getProperty("jdbc.driverClassName"));
-			cpds.setJdbcUrl(config.getProperty("jdbc.url"));
-			cpds.setUser(config.getProperty("jdbc.username"));
-			cpds.setPassword(config.getProperty("jdbc.password"));
-			cpds.setMinPoolSize(NumberUtils.toInt(config.getProperty("jdbc.MinPoolSize"), 5));
-			cpds.setAcquireIncrement(NumberUtils.toInt(config.getProperty("jdbc.setAcquireIncrement"), 5));
-			cpds.setMaxPoolSize(NumberUtils.toInt(config.getProperty("jdbc.MaxPoolSize"), 20));
+		
+		if (pooledDataSource == null) {
+			pooledDataSource = new ComboPooledDataSource();
+			pooledDataSource.setDriverClass(config.getProperty("jdbc.driverClassName"));
+			pooledDataSource.setJdbcUrl(config.getProperty("jdbc.url"));
+			pooledDataSource.setUser(config.getProperty("jdbc.username"));
+			pooledDataSource.setPassword(config.getProperty("jdbc.password"));
+			pooledDataSource.setMinPoolSize(NumberUtils.toInt(config.getProperty("jdbc.MinPoolSize"), 5));
+			pooledDataSource.setAcquireIncrement(NumberUtils.toInt(config.getProperty("jdbc.setAcquireIncrement"), 5));
+			pooledDataSource.setMaxPoolSize(NumberUtils.toInt(config.getProperty("jdbc.MaxPoolSize"), 20));
 		}
 	}
-
+	
 	public static void init(ResourceBundle config) throws Exception {
-
-		if (cpds == null) {
+		
+		if (pooledDataSource == null) {
 			Properties p = new Properties();
 			for (String key : config.keySet()) {
 				p.setProperty(key, config.getString(key));
@@ -54,83 +54,21 @@ public class DBUtils {
 			init(p);
 		}
 	}
-
-	@Deprecated
-	public static void beginTransaction() {
-
-		if (userThreadLocal.get() != null) {
-			userThreadLocal.set(null);
+	
+	protected static ComboPooledDataSource getPooledDataSource() {
+		
+		if(pooledDataSource == null){
+			throw new IllegalArgumentException("initial datasource config fail ...");
 		}
-		log.debug("Starting new database transaction in this thread.");
-
-		Connection currentConnection;
-		try {
-			currentConnection = cpds.getConnection();
-			currentConnection.setAutoCommit(false);
-			userThreadLocal.set(currentConnection);
-		} catch (SQLException e) {
-			log.error(e, e);
-			throw new RuntimeException(e);
-		}
+		return pooledDataSource;
 	}
-
-	@Deprecated
-	public static void commitTransaction() {
-
-		if (userThreadLocal.get() != null) {
-			Connection currentConnection = userThreadLocal.get();
-			try {
-				currentConnection.commit();
-				log.debug("commit database transaction in this thread.");
-			} catch (SQLException e) {
-				log.error(e, e);
-				throw new RuntimeException(e);
-			} finally {
-				userThreadLocal.set(null);
-				try {
-					currentConnection.rollback();
-					currentConnection.close();
-				} catch (SQLException e) {
-					log.error(e, e);
-					throw new RuntimeException(e);
-				}
-			}
-		} else {
-			throw new RuntimeException("error operator ,miss beginTransaction operator ");
-		}
-	}
-
-	@Deprecated
-	public static void rollbackTransaction() {
-
-		if (userThreadLocal.get() != null) {
-			Connection currentConnection = userThreadLocal.get();
-			try {
-				currentConnection.rollback();
-				log.debug("rollback database transaction in this thread.");
-			} catch (SQLException e) {
-				log.error(e, e);
-				throw new RuntimeException(e);
-			} finally {
-				userThreadLocal.set(null);
-				try {
-					currentConnection.close();
-				} catch (SQLException e) {
-					log.error(e, e);
-					throw new RuntimeException(e);
-				}
-			}
-		} else {
-			throw new RuntimeException("error operator ,miss beginTransaction operator ");
-		}
-	}
-
+	
 	protected static Connection getConnection() throws SQLException {
 
 		if (userThreadLocal.get() != null) {
 			return userThreadLocal.get();
 		} else {
-			return cpds.getConnection();
+			return pooledDataSource.getConnection();
 		}
 	}
 
@@ -293,8 +231,33 @@ public class DBUtils {
 		}
 		return valueList;
 	}
+	
+	
+	
+	protected static <T> String createSelectSql(T bean) {
 
-	protected static <T> List<T> retrieveVOos(T bean) throws SQLException {
+		StringBuilder sb = new StringBuilder();
+
+		String tableName = bean.getClass().getSimpleName();
+		Map<String, Object> fieldsMap = getNotBlankFields(bean);
+		String[] fields = (String[]) fieldsMap.keySet().toArray(new String[] {});
+
+		// create sql
+		sb.append("SELECT * FROM ").append(tableName);
+		if (fields.length > 0) {
+			sb.append(" WHERE ");
+			for (int i = 0; i < fields.length; i++) {
+				if (i > 0) {
+					sb.append(" AND ");
+				}
+				sb.append(fields[i]).append(" = ").append(" ? ");
+			}
+		}
+
+		return sb.toString();
+	}
+	
+	protected static <T> List<T> retrieveVos(T bean) throws SQLException {
 
 		List<T> beanList = new ArrayList<T>();
 
@@ -558,5 +521,7 @@ public class DBUtils {
 		}
 		return count;
 	}
+
+	
 
 }
