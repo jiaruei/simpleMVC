@@ -30,9 +30,9 @@ public class DataSourceConfigListener implements ServletContextListener {
 				DBUtils.init(ResourceBundle.getBundle("jdbc"));
 			} catch (Exception e) {
 				e.printStackTrace();
-				servletContext.log("fail Initializing  default datasource ... ");
+				servletContext.log("default initializing datasource fail ... ");
 			}			
-			servletContext.log("default Initializing  datasource ... ");
+			servletContext.log("default initializing  datasource ... ");
 		}else{
 			InputStream is = event.getServletContext().getResourceAsStream(location);
 			Properties properties = new Properties();
@@ -41,10 +41,10 @@ public class DataSourceConfigListener implements ServletContextListener {
 				properties.load(is);
 				DBUtils.init(properties);
 			} catch (Exception e) {
-				throw new IllegalArgumentException("Invalid 'dataSourceConfigLocation' parameter: " + e.getMessage());
+				throw new IllegalArgumentException("invalid 'dataSourceConfigLocation' parameter: " + e.getMessage());
 			}
 			
-			servletContext.log("Initializing dataSourceConfigLocation from [" + location + "] ... ");
+			servletContext.log("initializing dataSourceConfigLocation from [" + location + "] ... ");
 		}
 	}
 
